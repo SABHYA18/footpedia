@@ -1,0 +1,276 @@
+databaseChangeLog:
+
+  # ---------------------------------------------------------------
+  # Append-only landing zone. EVERY provider response lands here raw
+  # before it is parsed. Lets you re-derive the whole database with
+  # zero API quota when (not if) the parsing logic turns out wrong.
+  # ---------------------------------------------------------------
+  - changeSet:
+      id: 001-raw-payload
+      author: sabhya
+      changes:
+        - createTable:
+            tableName: raw_payload
+            columns:
+              - column: {name: id, type: BIGINT AUTO_INCREMENT, constraints: {primaryKey: true}}
+              - column: {name: provider, type: VARCHAR(32), constraints: {nullable: false}}
+              - column: {name: endpoint, type: VARCHAR(255), constraints: {nullable: false}}
+              - column: {name: request_params, type: VARCHAR(512)}
+              # Idempotency key: same logical fetch must not be stored twice.
+              - column: {name: idempotency_key, type: VARCHAR(255), constraints: {nullable: false}}
+              - column: {name: http_status, type: INT}
+              - column: {name: payload, type: JSON}
+              - column: {name: fetched_at, type: DATETIME(3), constraints: {nullable: false}}
+              - column: {name: processed_at, type: DATETIME(3)}
+        - addUniqueConstraint:
+            tableName: raw_payload
+            columnNames: provider, idempotency_key
+            constraintName: uk_raw_payload_idem
+        - createIndex:
+            tableName: raw_payload
+            indexName: idx_raw_payload_unprocessed
+            columns:
+              - column: {name: processed_at}
+              - column: {name: fetched_at}
+
+  # ---------------------------------------------------------------
+  # Provider ID mapping. football-data.org and API-Football use
+  # completely different ID spaces for the same real-world entity,
+  # so internal surrogate IDs are the join key and this table
+  # translates at the edges.
+  # ---------------------------------------------------------------
+  - changeSet:
+      id: 002-external-ref
+      author: sabhya
+      changes:
+        - createTable:
+            tableName: external_ref
+            columns:
+              - column: {name: id, type: BIGINT AUTO_INCREMENT, constraints: {primaryKey: true}}
+              - column: {name: entity_type, type: VARCHAR(32), constraints: {nullable: false}}
+              - column: {name: provider, type: VARCHAR(32), constraints: {nullable: false}}
+              - column: {name: external_id, type: VARCHAR(64), constraints: {nullable: false}}
+              - column: {name: internal_id, type: BIGINT, constraints: {nullable: false}}
+              - column: {name: confidence, type: VARCHAR(16), defaultValue: EXACT}
+        - addUniqueConstraint:
+            tableName: external_ref
+            columnNames: entity_type, provider, external_id
+            constraintName: uk_external_ref_provider
+        - createIndex:
+            tableName: external_ref
+            indexName: idx_external_ref_internal
+            columns:
+              - column: {name: entity_type}
+              - column: {name: internal_id}
+
+  - changeSet:
+      id: 003-competition-team
+      author: sabhya
+      changes:
+        - createTable:
+            tableName: competition
+            columns:
+              - column: {name: id, type: BIGINT AUTO_INCREMENT, constraints: {primaryKey: true}}
+              - column: {name: code, type: VARCHAR(16), constraints: {nullable: false}}
+              - column: {name: name, type: VARCHAR(128), constraints: {nullable: false}}
+              - column: {name: country, type: VARCHAR(64)}
+              - column: {name: current_season, type: VARCHAR(16)}
+              - column: {name: emblem_url, type: VARCHAR(512)}
+        - addUniqueConstraint:
+            tableName: competition
+            columnNames: code
+            constraintName: uk_competition_code
+        - createTable:
+            tableName: team
+            columns:
+              - column: {name: id, type: BIGINT AUTO_INCREMENT, constraints: {primaryKey: true}}
+              - column: {name: name, type: VARCHAR(128), constraints: {nullable: false}}
+              - column: {name: short_name, type: VARCHAR(64)}
+              - column: {name: tla, type: VARCHAR(8)}
+              - column: {name: crest_url, type: VARCHAR(512)}
+              - column: {name: venue, type: VARCHAR(128)}
+              - column: {name: founded, type: INT}
+
+  - changeSet:
+      id: 004-fixture
+      author: sabhya
+      changes:
+        - createTable:
+            tableName: fixture
+            columns:
+              - column: {name: id, type: BIGINT AUTO_INCREMENT, constraints: {primaryKey: true}}
+              - column: {name: competition_id, type: BIGINT, constraints: {nullable: false}}
+              - column: {name: season, type: VARCHAR(16), constraints: {nullable: false}}
+              - column: {name: matchday, type: INT}
+              - column: {name: utc_kickoff, type: DATETIME(3), constraints: {nullable: false}}
+              - column: {name: status, type: VARCHAR(32), constraints: {nullable: false}}
+              - column: {name: home_team_id, type: BIGINT, constraints: {nullable: false}}
+              - column: {name: away_team_id, type: BIGINT, constraints: {nullable: false}}
+              - column: {name: home_score, type: INT}
+              - column: {name: away_score, type: INT}
+              # Set once API-Football detail has been lazily pulled for this match.
+              - column: {name: detail_fetched_at, type: DATETIME(3)}
+              - column: {name: updated_at, type: DATETIME(3), constraints: {nullable: false}}
+        - addForeignKeyConstraint:
+            baseTableName: fixture
+            baseColumnNames: competition_id
+            referencedTableName: competition
+            referencedColumnNames: id
+            constraintName: fk_fixture_competition
+        - addForeignKeyConstraint:
+            baseTableName: fixture
+            baseColumnNames: home_team_id
+            referencedTableName: team
+            referencedColumnNames: id
+            constraintName: fk_fixture_home_team
+        - addForeignKeyConstraint:
+            baseTableName: fixture
+            baseColumnNames: away_team_id
+            referencedTableName: team
+            referencedColumnNames: id
+            constraintName: fk_fixture_away_team
+        - createIndex:
+            tableName: fixture
+            indexName: idx_fixture_kickoff
+            columns:
+              - column: {name: utc_kickoff}
+              - column: {name: status}
+        - createIndex:
+            tableName: fixture
+            indexName: idx_fixture_comp_season
+            columns:
+              - column: {name: competition_id}
+              - column: {name: season}
+              - column: {name: matchday}
+
+  - changeSet:
+      id: 005-standing
+      author: sabhya
+      changes:
+        - createTable:
+            tableName: standing
+            columns:
+              - column: {name: id, type: BIGINT AUTO_INCREMENT, constraints: {primaryKey: true}}
+              - column: {name: competition_id, type: BIGINT, constraints: {nullable: false}}
+              - column: {name: season, type: VARCHAR(16), constraints: {nullable: false}}
+              - column: {name: team_id, type: BIGINT, constraints: {nullable: false}}
+              - column: {name: position, type: INT}
+              - column: {name: played, type: INT}
+              - column: {name: won, type: INT}
+              - column: {name: draw, type: INT}
+              - column: {name: lost, type: INT}
+              - column: {name: points, type: INT}
+              - column: {name: goals_for, type: INT}
+              - column: {name: goals_against, type: INT}
+              - column: {name: form, type: VARCHAR(16)}
+              - column: {name: updated_at, type: DATETIME(3)}
+        - addUniqueConstraint:
+            tableName: standing
+            columnNames: competition_id, season, team_id
+            constraintName: uk_standing_comp_season_team
+
+  # ---------------------------------------------------------------
+  # Player data is the EXPENSIVE side (API-Football, 100/day).
+  # Rows here are written once on first demand and kept forever;
+  # stats_fetched_at drives the staleness policy for re-fetching.
+  # ---------------------------------------------------------------
+  - changeSet:
+      id: 006-player
+      author: sabhya
+      changes:
+        - createTable:
+            tableName: player
+            columns:
+              - column: {name: id, type: BIGINT AUTO_INCREMENT, constraints: {primaryKey: true}}
+              - column: {name: name, type: VARCHAR(128), constraints: {nullable: false}}
+              - column: {name: position, type: VARCHAR(32)}
+              - column: {name: nationality, type: VARCHAR(64)}
+              - column: {name: date_of_birth, type: DATE}
+              - column: {name: current_team_id, type: BIGINT}
+              - column: {name: photo_url, type: VARCHAR(512)}
+        - createTable:
+            tableName: player_season_stats
+            columns:
+              - column: {name: id, type: BIGINT AUTO_INCREMENT, constraints: {primaryKey: true}}
+              - column: {name: player_id, type: BIGINT, constraints: {nullable: false}}
+              - column: {name: team_id, type: BIGINT}
+              - column: {name: competition_id, type: BIGINT}
+              - column: {name: season, type: VARCHAR(16), constraints: {nullable: false}}
+              - column: {name: appearances, type: INT}
+              - column: {name: minutes, type: INT}
+              - column: {name: goals, type: INT}
+              - column: {name: assists, type: INT}
+              - column: {name: shots, type: INT}
+              - column: {name: shots_on_target, type: INT}
+              - column: {name: yellow_cards, type: INT}
+              - column: {name: red_cards, type: INT}
+              - column: {name: expected_goals, type: DECIMAL(6,3)}
+              # Drives the staleness policy: only re-fetch when this is old
+              # AND the player has featured since.
+              - column: {name: stats_fetched_at, type: DATETIME(3)}
+        - addUniqueConstraint:
+            tableName: player_season_stats
+            columnNames: player_id, season, competition_id
+            constraintName: uk_player_season_comp
+        - addForeignKeyConstraint:
+            baseTableName: player_season_stats
+            baseColumnNames: player_id
+            referencedTableName: player
+            referencedColumnNames: id
+            constraintName: fk_pss_player
+
+  - changeSet:
+      id: 007-reminder
+      author: sabhya
+      changes:
+        - createTable:
+            tableName: reminder
+            columns:
+              - column: {name: id, type: BIGINT AUTO_INCREMENT, constraints: {primaryKey: true}}
+              - column: {name: user_ref, type: VARCHAR(64), constraints: {nullable: false}}
+              - column: {name: fixture_id, type: BIGINT, constraints: {nullable: false}}
+              - column: {name: lead_time_seconds, type: INT, constraints: {nullable: false}}
+              - column: {name: notify_at, type: DATETIME(3), constraints: {nullable: false}}
+              - column: {name: status, type: VARCHAR(24), constraints: {nullable: false}}
+              - column: {name: sent_at, type: DATETIME(3)}
+              - column: {name: created_at, type: DATETIME(3), constraints: {nullable: false}}
+        - addUniqueConstraint:
+            tableName: reminder
+            columnNames: user_ref, fixture_id
+            constraintName: uk_reminder_user_fixture
+        - addForeignKeyConstraint:
+            baseTableName: reminder
+            baseColumnNames: fixture_id
+            referencedTableName: fixture
+            referencedColumnNames: id
+            constraintName: fk_reminder_fixture
+        - createIndex:
+            tableName: reminder
+            indexName: idx_reminder_due
+            columns:
+              - column: {name: status}
+              - column: {name: notify_at}
+
+  # ---------------------------------------------------------------
+  # Durable record of provider spend. Redis holds the live counter;
+  # this is the audit trail that survives a Redis flush.
+  # ---------------------------------------------------------------
+  - changeSet:
+      id: 008-quota-ledger
+      author: sabhya
+      changes:
+        - createTable:
+            tableName: provider_quota_ledger
+            columns:
+              - column: {name: id, type: BIGINT AUTO_INCREMENT, constraints: {primaryKey: true}}
+              - column: {name: provider, type: VARCHAR(32), constraints: {nullable: false}}
+              - column: {name: quota_date, type: DATE, constraints: {nullable: false}}
+              - column: {name: endpoint, type: VARCHAR(255)}
+              - column: {name: reason, type: VARCHAR(64)}
+              - column: {name: spent_at, type: DATETIME(3), constraints: {nullable: false}}
+        - createIndex:
+            tableName: provider_quota_ledger
+            indexName: idx_quota_provider_date
+            columns:
+              - column: {name: provider}
+              - column: {name: quota_date}

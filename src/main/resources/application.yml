@@ -1,0 +1,73 @@
+spring:
+  application:
+    name: footpedia
+
+  datasource:
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:footpedia}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    username: ${DB_USER:footpedia}
+    password: ${DB_PASSWORD:}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate        # Liquibase owns the schema, never Hibernate
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.yaml
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,circuitbreakers
+
+footpedia:
+  providers:
+    football-data:
+      base-url: https://api.football-data.org/v4
+      api-key: ${FOOTBALL_DATA_API_KEY:}
+      # 10 req/min, no daily cap -> the workhorse for fixtures/standings/scorers
+      requests-per-minute: 10
+    api-football:
+      base-url: https://v3.football.api-sports.io
+      api-key: ${API_FOOTBALL_API_KEY:}
+      # 100 req/DAY. Spent only on lazy player/match detail, never on polling.
+      requests-per-day: 100
+      requests-per-minute: 10
+      # Stop lazy fetches once this much of the daily budget is gone, so a
+      # burst of page views can never starve the evening's live fixtures.
+      reserve-threshold: 15
+
+  # Cache TTLs derived from how fast each thing actually changes.
+  cache-ttl:
+    live-score: 30s
+    todays-fixtures: 5m
+    fixture-list: 1h
+    standings: 1h
+    player-season-stats: 12h
+    transfers: 24h
+    historical-fixture: 30d
+
+  # How stale player data may get before a lazy re-fetch is allowed.
+  staleness:
+    player-stats: 7d
+
+  reminders:
+    # Default lead time before kickoff.
+    default-lead-time: 1h
+    # ZSET the scheduler polls.
+    zset-key: footpedia:reminders
+
+logging:
+  level:
+    com.footpedia: DEBUG
