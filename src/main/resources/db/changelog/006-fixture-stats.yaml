@@ -1,0 +1,71 @@
+databaseChangeLog:
+
+  # ---------------------------------------------------------------
+  # API-Football's free plan only covers seasons 2022-2024, not the
+  # live season football-data.org already tracks -- these rows land
+  # against Fixture rows with season != competition.current_season.
+  # ---------------------------------------------------------------
+  - changeSet:
+      id: 006-fixture-team-stat
+      author: sabhya
+      changes:
+        - createTable:
+            tableName: fixture_team_stat
+            columns:
+              - column: {name: id, type: BIGINT, autoIncrement: true, constraints: {primaryKey: true}}
+              - column: {name: fixture_id, type: BIGINT, constraints: {nullable: false}}
+              - column: {name: team_id, type: BIGINT, constraints: {nullable: false}}
+              - column: {name: stat_type, type: VARCHAR(64), constraints: {nullable: false}}
+              - column: {name: stat_value, type: VARCHAR(32)}
+        - addUniqueConstraint:
+            tableName: fixture_team_stat
+            columnNames: fixture_id, team_id, stat_type
+            constraintName: uk_fixture_team_stat
+        - addForeignKeyConstraint:
+            baseTableName: fixture_team_stat
+            baseColumnNames: fixture_id
+            referencedTableName: fixture
+            referencedColumnNames: id
+            constraintName: fk_fts_fixture
+
+  - changeSet:
+      id: 007-fixture-player-stat
+      author: sabhya
+      changes:
+        - createTable:
+            tableName: fixture_player_stat
+            columns:
+              - column: {name: id, type: BIGINT, autoIncrement: true, constraints: {primaryKey: true}}
+              - column: {name: fixture_id, type: BIGINT, constraints: {nullable: false}}
+              - column: {name: team_id, type: BIGINT, constraints: {nullable: false}}
+              - column: {name: player_id, type: BIGINT, constraints: {nullable: false}}
+              - column: {name: position, type: VARCHAR(8)}
+              - column: {name: minutes, type: INT}
+              - column: {name: rating, type: "DECIMAL(3,1)"}
+              - column: {name: goals, type: INT}
+              - column: {name: assists, type: INT}
+              - column: {name: shots_total, type: INT}
+              - column: {name: shots_on, type: INT}
+              - column: {name: passes_total, type: INT}
+              - column: {name: passes_accuracy, type: INT}
+              - column: {name: tackles, type: INT}
+              - column: {name: duels_total, type: INT}
+              - column: {name: duels_won, type: INT}
+              - column: {name: yellow_cards, type: INT}
+              - column: {name: red_cards, type: INT}
+        - addUniqueConstraint:
+            tableName: fixture_player_stat
+            columnNames: fixture_id, player_id
+            constraintName: uk_fixture_player_stat
+        - addForeignKeyConstraint:
+            baseTableName: fixture_player_stat
+            baseColumnNames: fixture_id
+            referencedTableName: fixture
+            referencedColumnNames: id
+            constraintName: fk_fps_fixture
+        - addForeignKeyConstraint:
+            baseTableName: fixture_player_stat
+            baseColumnNames: player_id
+            referencedTableName: player
+            referencedColumnNames: id
+            constraintName: fk_fps_player

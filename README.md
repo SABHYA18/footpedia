@@ -3,7 +3,7 @@
 Football fixtures, reminders, team/player analytics and an AI agent for the
 Premier League, La Liga, Serie A and the Bundesliga.
 
-Java 17 · Spring Boot 3.5.16 · MySQL · Redis · Liquibase · Resilience4j
+Java 17 · Spring Boot 3.5.16 · Postgres (Supabase) · Redis · Liquibase · Resilience4j
 
 ## The constraint that shapes everything
 
@@ -21,8 +21,8 @@ whole architecture follows from that:
 because polling there is effectively free.
 
 **Lazy-load-then-persist** (API-Football) covers the expensive data. The first
-person to open a player page spends one request; the result is written to MySQL
-**permanently**, and everyone after that is served locally. Re-fetching happens
+person to open a player page spends one request; the result is written to
+Postgres **permanently**, and everyone after that is served locally. Re-fetching happens
 only when the staleness policy allows (stats older than 7 days *and* the player
 has featured since). The daily budget therefore buys *coverage that accumulates*
 rather than being re-spent on the same players.
@@ -58,26 +58,27 @@ Derived from how fast each thing actually changes, not picked round-number-first
 
 ## Running locally
 
-Redis and MySQL run natively (no Docker on this machine).
+The database is [Supabase](https://supabase.com) Postgres (hosted — no local
+install, no Docker). Redis still runs natively:
 
 ```bash
 brew services start redis
-brew services start mysql
 ```
 
-Create the database and a dedicated user:
+Create a Supabase project, then from **Project Settings -> Database ->
+Connection string** grab the host and password for the direct connection or
+session pooler (port 5432 — not the 6543 transaction pooler, which breaks
+Hibernate's prepared statement caching).
 
-```bash
-mysql -u root -p -e "CREATE DATABASE IF NOT EXISTS footpedia CHARACTER SET utf8mb4; CREATE USER IF NOT EXISTS 'footpedia'@'localhost' IDENTIFIED BY 'CHANGE_ME'; GRANT ALL PRIVILEGES ON footpedia.* TO 'footpedia'@'localhost'; FLUSH PRIVILEGES;"
-```
-
-Then copy `.env.example` to `.env`, fill it in, and run:
+Copy `.env.example` to `.env` and fill in `DB_HOST`/`DB_PASSWORD` (and the
+provider API keys), then run:
 
 ```bash
 mvn spring-boot:run
 ```
 
-Liquibase applies the schema on first boot.
+Liquibase applies the schema against Supabase on first boot — no manual
+table creation needed.
 
 ## Build plan
 

@@ -1,0 +1,60 @@
+databaseChangeLog:
+
+  # ---------------------------------------------------------------
+  # Favorite leagues/teams. No favorite-player table yet -- there is
+  # no player data in the system until the API-Football lazy loader
+  # exists, so a player_id here would have nothing to reference.
+  # ---------------------------------------------------------------
+  - changeSet:
+      id: 011-user-league-preference
+      author: sabhya
+      changes:
+        - createTable:
+            tableName: user_league_preference
+            columns:
+              - column: {name: id, type: BIGINT, autoIncrement: true, constraints: {primaryKey: true}}
+              - column: {name: user_id, type: BIGINT, constraints: {nullable: false}}
+              - column: {name: competition_id, type: BIGINT, constraints: {nullable: false}}
+        - addUniqueConstraint:
+            tableName: user_league_preference
+            columnNames: user_id, competition_id
+            constraintName: uk_user_league_pref
+        - addForeignKeyConstraint:
+            baseTableName: user_league_preference
+            baseColumnNames: user_id
+            referencedTableName: app_user
+            referencedColumnNames: id
+            constraintName: fk_user_league_pref_user
+        - addForeignKeyConstraint:
+            baseTableName: user_league_preference
+            baseColumnNames: competition_id
+            referencedTableName: competition
+            referencedColumnNames: id
+            constraintName: fk_user_league_pref_competition
+
+  - changeSet:
+      id: 012-user-team-preference
+      author: sabhya
+      changes:
+        - createTable:
+            tableName: user_team_preference
+            columns:
+              - column: {name: id, type: BIGINT, autoIncrement: true, constraints: {primaryKey: true}}
+              - column: {name: user_id, type: BIGINT, constraints: {nullable: false}}
+              - column: {name: team_id, type: BIGINT, constraints: {nullable: false}}
+        - addUniqueConstraint:
+            tableName: user_team_preference
+            columnNames: user_id, team_id
+            constraintName: uk_user_team_pref
+        - addForeignKeyConstraint:
+            baseTableName: user_team_preference
+            baseColumnNames: user_id
+            referencedTableName: app_user
+            referencedColumnNames: id
+            constraintName: fk_user_team_pref_user
+        - addForeignKeyConstraint:
+            baseTableName: user_team_preference
+            baseColumnNames: team_id
+            referencedTableName: team
+            referencedColumnNames: id
+            constraintName: fk_user_team_pref_team

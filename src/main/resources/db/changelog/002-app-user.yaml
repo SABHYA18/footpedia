@@ -1,0 +1,18 @@
+databaseChangeLog:
+
+  - changeSet:
+      id: 009-app-user
+      author: sabhya
+      changes:
+        - createTable:
+            tableName: app_user
+            columns:
+              - column: {name: id, type: BIGINT, autoIncrement: true, constraints: {primaryKey: true}}
+              - column: {name: email, type: VARCHAR(255), constraints: {nullable: false}}
+              - column: {name: password_hash, type: VARCHAR(255), constraints: {nullable: false}}
+              - column: {name: display_name, type: VARCHAR(128)}
+              - column: {name: created_at, type: "DATETIME(3)", constraints: {nullable: false}}
+        - addUniqueConstraint:
+            tableName: app_user
+            columnNames: email
+            constraintName: uk_app_user_email

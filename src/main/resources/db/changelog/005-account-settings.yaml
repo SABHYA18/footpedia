@@ -1,0 +1,13 @@
+databaseChangeLog:
+
+  - changeSet:
+      id: 013-account-settings
+      author: sabhya
+      changes:
+        - addColumn:
+            tableName: app_user
+            columns:
+              # Overrides footpedia.reminders.default-lead-time for this user. Null = use the system default.
+              - column: {name: default_lead_time_minutes, type: INT}
+              - column: {name: notification_channel, type: VARCHAR(16), defaultValue: EMAIL, constraints: {nullable: false}}
+              - column: {name: telegram_handle, type: VARCHAR(64)}

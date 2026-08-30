@@ -1,12 +1,23 @@
+server:
+  # Railway (and most PaaS hosts) assign the listen port dynamically via $PORT.
+  port: ${PORT:8080}
+
 spring:
   application:
     name: footpedia
 
+  config:
+    # Loads .env (working-directory-relative) as properties, so the values
+    # placeholder'd below (${DB_HOST:...} etc.) resolve without exporting
+    # them into the shell first. Optional: absent in prod, where real env
+    # vars are set instead.
+    import: optional:file:.env[.properties]
+
   datasource:
-    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:footpedia}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:footpedia}?sslmode=${DB_SSLMODE:disable}
     username: ${DB_USER:footpedia}
     password: ${DB_PASSWORD:}
-    driver-class-name: com.mysql.cj.jdbc.Driver
+    driver-class-name: org.postgresql.Driver
 
   jpa:
     hibernate:
@@ -24,12 +35,46 @@ spring:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
+      # Empty default preserves the local no-auth Redis used in dev; a managed
+      # Redis (Railway's plugin, etc.) needs this set.
+      password: ${REDIS_PASSWORD:}
+
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_APP_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+  task:
+    scheduling:
+      pool:
+        # Spring's default is a single shared thread for every @Scheduled method --
+        # a slow football-data.org sync (minutes, observed in practice) would then
+        # completely block the reminder poller for that whole window, arbitrarily
+        # delaying "before kickoff" notifications. One thread per scheduled job
+        # family so they can't starve each other.
+        size: 4
 
 management:
   endpoints:
     web:
       exposure:
         include: health,info,metrics,circuitbreakers
+
+resilience4j:
+  ratelimiter:
+    instances:
+      football-data:
+        # Mirrors footpedia.providers.football-data.requests-per-minute below.
+        limit-for-period: 10
+        limit-refresh-period: 1m
+        timeout-duration: 10s
 
 footpedia:
   providers:
@@ -67,6 +112,22 @@ footpedia:
     default-lead-time: 1h
     # ZSET the scheduler polls.
     zset-key: footpedia:reminders
+    poll-interval: 30s
+
+  jwt:
+    # HS256 needs >= 32 bytes. The default is dev-only -- override in prod.
+    secret: ${JWT_SECRET:dev-only-change-me-please-32bytesmin-000000}
+    expiration-minutes: ${JWT_EXPIRATION_MINUTES:1440}
+
+  mail:
+    from: ${MAIL_FROM:${MAIL_USERNAME:}}
+    # Where the reset link points.
+    frontend-url: ${FRONTEND_URL:http://localhost:5173}
+    reset-token-expiry-minutes: 30
+
+  cors:
+    # footpedia-fe's dev server (Vite default port). Override for prod.
+    allowed-origin: ${FRONTEND_ORIGIN:http://localhost:5173}
 
 logging:
   level:
