@@ -5,6 +5,7 @@ import com.footpedia.domain.Competition;
 import com.footpedia.domain.Fixture;
 import com.footpedia.domain.FixtureStatus;
 import com.footpedia.domain.Team;
+import com.footpedia.repository.CompetitionRepository;
 import com.footpedia.repository.FixtureRepository;
 import com.footpedia.repository.TeamRepository;
 import com.footpedia.web.dto.FixtureResponse;
@@ -33,6 +34,7 @@ public class FixtureQueryServiceImpl implements FixtureQueryService {
     private static final List<FixtureStatus> LIVE_STATUSES = List.of(FixtureStatus.IN_PLAY, FixtureStatus.PAUSED);
 
     private final CompetitionLookup competitionLookup;
+    private final CompetitionRepository competitionRepository;
     private final FixtureRepository fixtureRepository;
     private final TeamRepository teamRepository;
 
@@ -81,19 +83,33 @@ public class FixtureQueryServiceImpl implements FixtureQueryService {
     public FixtureResponse getById(Long id) {
         Fixture fixture = fixtureRepository.findById(id).orElseThrow(() -> new NotFoundException("Unknown fixture: " + id));
         Map<Long, Team> teamsById = teamsById(List.of(fixture));
-        return FixtureResponse.from(fixture, TeamResponse.from(teamsById.get(fixture.getHomeTeamId())),
+        Map<Long, Competition> competitionsById = competitionsById(List.of(fixture));
+        return FixtureResponse.from(
+                fixture,
+                competitionsById.get(fixture.getCompetitionId()).getCode(),
+                TeamResponse.from(teamsById.get(fixture.getHomeTeamId())),
                 TeamResponse.from(teamsById.get(fixture.getAwayTeamId())));
     }
 
     private List<FixtureResponse> toResponses(List<Fixture> fixtures) {
         Map<Long, Team> teamsById = teamsById(fixtures);
+        Map<Long, Competition> competitionsById = competitionsById(fixtures);
         // Collectors.toList() (a plain ArrayList), not Stream.toList() -- the
         // latter's private ImmutableCollections$ListN doesn't round-trip
         // through GenericJackson2JsonRedisSerializer's default typing.
         return fixtures.stream()
                 .map(f -> FixtureResponse.from(
-                        f, TeamResponse.from(teamsById.get(f.getHomeTeamId())), TeamResponse.from(teamsById.get(f.getAwayTeamId()))))
+                        f,
+                        competitionsById.get(f.getCompetitionId()).getCode(),
+                        TeamResponse.from(teamsById.get(f.getHomeTeamId())),
+                        TeamResponse.from(teamsById.get(f.getAwayTeamId()))))
                 .collect(Collectors.toList());
+    }
+
+    private Map<Long, Competition> competitionsById(List<Fixture> fixtures) {
+        List<Long> competitionIds = fixtures.stream().map(Fixture::getCompetitionId).distinct().toList();
+        return competitionRepository.findAllById(competitionIds).stream()
+                .collect(Collectors.toMap(Competition::getId, Function.identity()));
     }
 
     private Map<Long, Team> teamsById(List<Fixture> fixtures) {

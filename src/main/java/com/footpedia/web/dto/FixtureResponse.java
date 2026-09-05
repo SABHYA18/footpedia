@@ -6,6 +6,7 @@ import java.time.Instant;
 
 public record FixtureResponse(
         Long id,
+        String competitionCode,
         Instant utcKickoff,
         String status,
         Integer matchday,
@@ -14,9 +15,10 @@ public record FixtureResponse(
         Integer homeScore,
         Integer awayScore) {
 
-    public static FixtureResponse from(Fixture f, TeamResponse homeTeam, TeamResponse awayTeam) {
+    public static FixtureResponse from(Fixture f, String competitionCode, TeamResponse homeTeam, TeamResponse awayTeam) {
         return new FixtureResponse(
                 f.getId(),
+                competitionCode,
                 f.getUtcKickoff(),
                 f.getStatus().name(),
                 f.getMatchday(),
