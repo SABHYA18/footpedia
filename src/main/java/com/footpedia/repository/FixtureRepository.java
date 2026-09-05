@@ -36,6 +36,10 @@ public interface FixtureRepository extends JpaRepository<Fixture, Long> {
             + "and f.utcKickoff >= :from order by f.utcKickoff asc")
     List<Fixture> findUpcomingForTeams(@Param("teamIds") List<Long> teamIds, @Param("from") Instant from, Pageable pageable);
 
+    @Query("select f from Fixture f where (f.homeTeamId = :teamId or f.awayTeamId = :teamId) "
+            + "and f.status = 'FINISHED' order by f.utcKickoff desc")
+    List<Fixture> findMostRecentFinishedForTeam(@Param("teamId") Long teamId, Pageable pageable);
+
     @Query("select max(f.matchday) from Fixture f where f.competitionId = :competitionId and f.season = :season")
     Optional<Integer> findMaxMatchday(@Param("competitionId") Long competitionId, @Param("season") String season);
 }

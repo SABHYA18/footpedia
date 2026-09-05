@@ -15,4 +15,7 @@ public interface FixtureQueryService {
     List<FixtureResponse> getUpcomingForTeams(List<Long> teamIds, int limit);
 
     FixtureResponse getById(Long id);
+
+    /** Most recent finished fixture for a team, or null if it hasn't played one yet. */
+    FixtureResponse getPreviousFixtureForTeam(Long teamId);
 }

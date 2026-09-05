@@ -80,6 +80,12 @@ public class FixtureQueryServiceImpl implements FixtureQueryService {
     }
 
     @Override
+    public FixtureResponse getPreviousFixtureForTeam(Long teamId) {
+        List<Fixture> recent = fixtureRepository.findMostRecentFinishedForTeam(teamId, PageRequest.of(0, 1));
+        return recent.isEmpty() ? null : toResponses(recent).get(0);
+    }
+
+    @Override
     public FixtureResponse getById(Long id) {
         Fixture fixture = fixtureRepository.findById(id).orElseThrow(() -> new NotFoundException("Unknown fixture: " + id));
         Map<Long, Team> teamsById = teamsById(List.of(fixture));
