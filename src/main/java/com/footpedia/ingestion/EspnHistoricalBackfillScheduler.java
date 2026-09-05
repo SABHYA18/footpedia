@@ -10,6 +10,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.List;
@@ -28,6 +30,15 @@ import java.util.TreeSet;
  * NULL}), same reasoning as the API-Football scheduler: no separate
  * tracking table, and a fixture that already has detail is never re-fetched.
  *
+ * <p>Deliberately excludes anything within {@link EspnMatchDetailScheduler}'s
+ * own 3-hour lookback (with a 1-hour safety buffer) -- the two used to have
+ * overlapping selection criteria for a just-finished fixture, and could both
+ * call {@code syncMatchDetail} for the same fixture at once. That raced on
+ * the lineup/event delete-then-reinsert (one scheduler's delete landing
+ * between the other's delete and insert), throwing a unique constraint
+ * violation. Giving each scheduler a disjoint window fixes the race at the
+ * source instead of only patching the downstream write.
+ *
  * <p>Scoped to the current season only -- older seasons (2023-24, 2024-25)
  * are API-Football's job via {@link HistoricalIngestionService}, which
  * pulls deeper per-player stats (passes, tackles, duels) ESPN doesn't
@@ -39,6 +50,7 @@ import java.util.TreeSet;
 public class EspnHistoricalBackfillScheduler {
 
     private static final List<String> COMPETITION_CODES = List.of("PL", "PD", "SA", "BL1", "CL");
+    private static final Duration EXCLUDE_RECENT = Duration.ofHours(4);
 
     private final EspnLiveIngestionService ingestionService;
     private final CompetitionRepository competitionRepository;
@@ -61,8 +73,13 @@ public class EspnHistoricalBackfillScheduler {
     }
 
     private void backfillCompetition(Competition competition, String code, String slug) {
-        List<Fixture> missing = fixtureRepository.findByCompetitionIdAndSeasonAndStatusAndDetailFetchedAtIsNull(
-                competition.getId(), competition.getCurrentSeason(), FixtureStatus.FINISHED);
+        Instant recentCutoff = Instant.now().minus(EXCLUDE_RECENT);
+        List<Fixture> missing = fixtureRepository
+                .findByCompetitionIdAndSeasonAndStatusAndDetailFetchedAtIsNull(
+                        competition.getId(), competition.getCurrentSeason(), FixtureStatus.FINISHED)
+                .stream()
+                .filter(f -> f.getUtcKickoff().isBefore(recentCutoff))
+                .toList();
         if (missing.isEmpty()) {
             return;
         }
@@ -88,6 +105,9 @@ public class EspnHistoricalBackfillScheduler {
         // fixtures that weren't previously matched to an ESPN event.
         for (Fixture fixture : fixtureRepository.findByCompetitionIdAndSeasonAndStatusAndDetailFetchedAtIsNull(
                 competition.getId(), competition.getCurrentSeason(), FixtureStatus.FINISHED)) {
+            if (!fixture.getUtcKickoff().isBefore(recentCutoff)) {
+                continue; // EspnMatchDetailScheduler's territory -- leave it alone
+            }
             try {
                 ingestionService.syncMatchDetail(fixture, slug);
             } catch (Exception e) {
