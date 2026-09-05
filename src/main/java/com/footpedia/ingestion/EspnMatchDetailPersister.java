@@ -2,7 +2,6 @@ package com.footpedia.ingestion;
 
 import com.footpedia.domain.Fixture;
 import com.footpedia.domain.FixtureEvent;
-import com.footpedia.domain.FixtureLineup;
 import com.footpedia.domain.FixtureStatus;
 import com.footpedia.domain.FixtureTeamStat;
 import com.footpedia.providers.espn.dto.EspnSummaryResponse;
@@ -54,15 +53,16 @@ class EspnMatchDetailPersister {
     }
 
     /**
-     * Find-or-create by (fixture, player) rather than delete-then-reinsert --
-     * this ran twice concurrently for the same fixture in practice (a local
-     * test instance and the deployed one both independently decided the same
-     * finished-hours-ago match still needed backfilling), and delete-then-
-     * blind-insert has no way to survive that: both processes pass "already
-     * deleted" and then race to reinsert the same (fixture_id, player_id),
-     * one losing to the unique constraint and aborting the whole sync for
-     * that fixture. A find-or-create update is naturally idempotent under
-     * that same race instead.
+     * Atomic upsert by (fixture, player) rather than delete-then-reinsert or
+     * even a JPA find-then-save -- this ran twice concurrently for the same
+     * fixture in practice (a local test instance and the deployed one both
+     * independently decided the same finished-hours-ago match still needed
+     * backfilling), and a find-then-save still has a window where both see
+     * "not found" for a genuinely new player and both try to insert (one of
+     * them observed live, on a *different* fixture, after switching away
+     * from delete-then-reinsert to find-then-save specifically to fix this).
+     * {@code ON CONFLICT DO UPDATE} in {@link FixtureLineupRepository#upsert}
+     * closes that window in Postgres itself.
      */
     private void syncLineups(Long fixtureId, List<EspnSummaryResponse.RosterDto> rosters) {
         if (rosters == null || rosters.isEmpty()) {
@@ -81,18 +81,15 @@ class EspnMatchDetailPersister {
                 if (playerId == null) {
                     continue;
                 }
-                FixtureLineup lineup = fixtureLineupRepository
-                        .findByFixtureIdAndPlayerId(fixtureId, playerId)
-                        .orElseGet(FixtureLineup::new);
-                lineup.setFixtureId(fixtureId);
-                lineup.setTeamId(teamId);
-                lineup.setPlayerId(playerId);
-                lineup.setPosition(entry.position() == null ? null : entry.position().abbreviation());
-                lineup.setJerseyNumber(parseIntOrNull(entry.jersey()));
-                lineup.setStarter(Boolean.TRUE.equals(entry.starter()));
-                lineup.setSubbedIn(Boolean.TRUE.equals(entry.subbedIn()));
-                lineup.setSubbedOut(Boolean.TRUE.equals(entry.subbedOut()));
-                fixtureLineupRepository.save(lineup);
+                fixtureLineupRepository.upsert(
+                        fixtureId,
+                        teamId,
+                        playerId,
+                        entry.position() == null ? null : entry.position().abbreviation(),
+                        parseIntOrNull(entry.jersey()),
+                        Boolean.TRUE.equals(entry.starter()),
+                        Boolean.TRUE.equals(entry.subbedIn()),
+                        Boolean.TRUE.equals(entry.subbedOut()));
             }
         }
     }
