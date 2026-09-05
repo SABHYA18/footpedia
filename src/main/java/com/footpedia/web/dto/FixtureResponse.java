@@ -13,7 +13,9 @@ public record FixtureResponse(
         TeamResponse homeTeam,
         TeamResponse awayTeam,
         Integer homeScore,
-        Integer awayScore) {
+        Integer awayScore,
+        String homeFormation,
+        String awayFormation) {
 
     public static FixtureResponse from(Fixture f, String competitionCode, TeamResponse homeTeam, TeamResponse awayTeam) {
         return new FixtureResponse(
@@ -25,6 +27,8 @@ public record FixtureResponse(
                 homeTeam,
                 awayTeam,
                 f.getHomeScore(),
-                f.getAwayScore());
+                f.getAwayScore(),
+                f.getHomeFormation(),
+                f.getAwayFormation());
     }
 }

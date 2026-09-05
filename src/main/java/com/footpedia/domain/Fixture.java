@@ -52,6 +52,12 @@ public class Fixture {
     @Column(name = "away_score")
     private Integer awayScore;
 
+    @Column(name = "home_formation", length = 16)
+    private String homeFormation;
+
+    @Column(name = "away_formation", length = 16)
+    private String awayFormation;
+
     /** Set once match detail (lineups/events/team stats) has been fetched for this match. */
     @Column(name = "detail_fetched_at")
     private Instant detailFetchedAt;

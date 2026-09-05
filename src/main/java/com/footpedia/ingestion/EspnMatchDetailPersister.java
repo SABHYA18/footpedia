@@ -42,14 +42,52 @@ class EspnMatchDetailPersister {
         syncLineups(fixtureId, summary.rosters());
         syncEvents(fixtureId, summary.keyEvents());
         syncTeamStats(fixtureId, summary.boxscore());
+        syncFormationsAndFinishedMarker(fixtureId, status, summary.rosters());
+    }
 
-        if (status == FixtureStatus.FINISHED) {
-            Fixture fixture = fixtureRepository.findById(fixtureId).orElse(null);
-            if (fixture != null) {
-                fixture.setDetailFetchedAt(Instant.now());
-                fixtureRepository.save(fixture);
+    /**
+     * Formation is a team-level attribute of the match itself (like the
+     * score), not a per-player one, so it lives on Fixture rather than
+     * fixture_lineup -- avoids repeating the same string across ~20 rows for
+     * no benefit. Bundled with the detail_fetched_at update since both touch
+     * the same Fixture row; no need for two separate fetch-then-saves.
+     */
+    private void syncFormationsAndFinishedMarker(
+            Long fixtureId, FixtureStatus status, List<EspnSummaryResponse.RosterDto> rosters) {
+        String homeFormation = null;
+        String awayFormation = null;
+        if (rosters != null) {
+            for (EspnSummaryResponse.RosterDto roster : rosters) {
+                if (roster.formation() == null) {
+                    continue;
+                }
+                if ("home".equals(roster.homeAway())) {
+                    homeFormation = roster.formation();
+                } else if ("away".equals(roster.homeAway())) {
+                    awayFormation = roster.formation();
+                }
             }
         }
+
+        boolean markFinished = status == FixtureStatus.FINISHED;
+        if (homeFormation == null && awayFormation == null && !markFinished) {
+            return;
+        }
+
+        Fixture fixture = fixtureRepository.findById(fixtureId).orElse(null);
+        if (fixture == null) {
+            return;
+        }
+        if (homeFormation != null) {
+            fixture.setHomeFormation(homeFormation);
+        }
+        if (awayFormation != null) {
+            fixture.setAwayFormation(awayFormation);
+        }
+        if (markFinished) {
+            fixture.setDetailFetchedAt(Instant.now());
+        }
+        fixtureRepository.save(fixture);
     }
 
     /**

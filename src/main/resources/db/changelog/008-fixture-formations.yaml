@@ -1,0 +1,10 @@
+databaseChangeLog:
+  - changeSet:
+      id: 011-fixture-formations
+      author: sabhya
+      changes:
+        - addColumn:
+            tableName: fixture
+            columns:
+              - column: {name: home_formation, type: VARCHAR(16)}
+              - column: {name: away_formation, type: VARCHAR(16)}

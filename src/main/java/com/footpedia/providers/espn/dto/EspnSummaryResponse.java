@@ -8,7 +8,8 @@ import java.util.List;
 public record EspnSummaryResponse(List<RosterDto> rosters, List<KeyEventDto> keyEvents, BoxscoreDto boxscore) {
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    public record RosterDto(String homeAway, EspnScoreboardResponse.TeamRefDto team, List<RosterEntryDto> roster) {
+    public record RosterDto(
+            String homeAway, EspnScoreboardResponse.TeamRefDto team, List<RosterEntryDto> roster, String formation) {
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
