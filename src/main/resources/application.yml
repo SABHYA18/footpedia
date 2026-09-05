@@ -58,8 +58,11 @@ spring:
         # a slow football-data.org sync (minutes, observed in practice) would then
         # completely block the reminder poller for that whole window, arbitrarily
         # delaying "before kickoff" notifications. One thread per scheduled job
-        # family so they can't starve each other.
-        size: 4
+        # family so they can't starve each other. 7 methods currently:
+        # LeagueIngestionScheduler (x2), HistoricalIngestionScheduler,
+        # ReminderDueScheduler, EspnLiveScoreScheduler, EspnMatchDetailScheduler,
+        # EspnHistoricalBackfillScheduler. Bump this again if another lands.
+        size: 8
 
 management:
   endpoints:
