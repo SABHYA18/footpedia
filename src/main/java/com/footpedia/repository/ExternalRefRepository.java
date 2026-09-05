@@ -8,4 +8,7 @@ import java.util.Optional;
 public interface ExternalRefRepository extends JpaRepository<ExternalRef, Long> {
     Optional<ExternalRef> findByEntityTypeAndProviderAndExternalId(
             String entityType, String provider, String externalId);
+
+    Optional<ExternalRef> findByEntityTypeAndProviderAndInternalId(
+            String entityType, String provider, Long internalId);
 }

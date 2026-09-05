@@ -52,7 +52,7 @@ public class Fixture {
     @Column(name = "away_score")
     private Integer awayScore;
 
-    /** Set once API-Football detail has been lazily pulled for this match. */
+    /** Set once match detail (lineups/events/team stats) has been fetched for this match. */
     @Column(name = "detail_fetched_at")
     private Instant detailFetchedAt;
 

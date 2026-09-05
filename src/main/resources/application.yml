@@ -74,7 +74,16 @@ resilience4j:
         # Mirrors footpedia.providers.football-data.requests-per-minute below.
         limit-for-period: 10
         limit-refresh-period: 1m
-        timeout-duration: 10s
+        # 5 competitions x 2 calls/cycle = 10 calls, exactly one window's
+        # worth. 70s (> the 1m refresh period) lets a cycle that doesn't
+        # fully fit in the current window's permits queue for the next
+        # window instead of erroring out.
+        timeout-duration: 70s
+      espn:
+        # Mirrors footpedia.providers.espn.requests-per-minute below.
+        limit-for-period: 20
+        limit-refresh-period: 1m
+        timeout-duration: 70s
 
 footpedia:
   providers:
@@ -92,6 +101,13 @@ footpedia:
       # Stop lazy fetches once this much of the daily budget is gone, so a
       # burst of page views can never starve the evening's live fixtures.
       reserve-threshold: 15
+    espn:
+      # Unofficial site API behind ESPN's own apps -- no key, no documented
+      # rate limit, no daily cap. Fills the gap football-data.org's free
+      # tier leaves: live status/score, lineups, match events, team stats.
+      # Kept conservative anyway since there's no published ceiling to trust.
+      base-url: https://site.api.espn.com/apis/site/v2/sports/soccer
+      requests-per-minute: 20
 
   # Cache TTLs derived from how fast each thing actually changes.
   cache-ttl:

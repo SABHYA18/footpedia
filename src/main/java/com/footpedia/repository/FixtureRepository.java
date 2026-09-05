@@ -26,6 +26,9 @@ public interface FixtureRepository extends JpaRepository<Fixture, Long> {
     List<Fixture> findByCompetitionIdAndSeasonAndUtcKickoffBetweenOrderByUtcKickoffAsc(
             Long competitionId, String season, Instant from, Instant to);
 
+    List<Fixture> findByCompetitionIdAndHomeTeamIdAndAwayTeamIdAndUtcKickoffBetween(
+            Long competitionId, Long homeTeamId, Long awayTeamId, Instant from, Instant to);
+
     @Query("select f from Fixture f where (f.homeTeamId in :teamIds or f.awayTeamId in :teamIds) "
             + "and f.utcKickoff >= :from order by f.utcKickoff asc")
     List<Fixture> findUpcomingForTeams(@Param("teamIds") List<Long> teamIds, @Param("from") Instant from, Pageable pageable);

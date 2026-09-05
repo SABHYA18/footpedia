@@ -1,0 +1,82 @@
+databaseChangeLog:
+
+  # ---------------------------------------------------------------
+  # ESPN's unofficial site API supplies lineups and match events
+  # (goals/cards/subs) for the live season -- data neither
+  # football-data.org's free tier nor API-Football's historical-only
+  # backfill provide. See EspnLiveIngestionService.
+  # ---------------------------------------------------------------
+  - changeSet:
+      id: 008-fixture-lineup
+      author: sabhya
+      changes:
+        - createTable:
+            tableName: fixture_lineup
+            columns:
+              - column: {name: id, type: BIGINT, autoIncrement: true, constraints: {primaryKey: true}}
+              - column: {name: fixture_id, type: BIGINT, constraints: {nullable: false}}
+              - column: {name: team_id, type: BIGINT, constraints: {nullable: false}}
+              - column: {name: player_id, type: BIGINT, constraints: {nullable: false}}
+              - column: {name: position, type: VARCHAR(16)}
+              - column: {name: jersey_number, type: INT}
+              - column: {name: starter, type: BOOLEAN, constraints: {nullable: false}, defaultValueBoolean: false}
+              - column: {name: subbed_in, type: BOOLEAN, constraints: {nullable: false}, defaultValueBoolean: false}
+              - column: {name: subbed_out, type: BOOLEAN, constraints: {nullable: false}, defaultValueBoolean: false}
+        - addUniqueConstraint:
+            tableName: fixture_lineup
+            columnNames: fixture_id, player_id
+            constraintName: uk_fixture_lineup
+        - addForeignKeyConstraint:
+            baseTableName: fixture_lineup
+            baseColumnNames: fixture_id
+            referencedTableName: fixture
+            referencedColumnNames: id
+            constraintName: fk_fl_fixture
+        - addForeignKeyConstraint:
+            baseTableName: fixture_lineup
+            baseColumnNames: player_id
+            referencedTableName: player
+            referencedColumnNames: id
+            constraintName: fk_fl_player
+
+  - changeSet:
+      id: 009-fixture-event
+      author: sabhya
+      changes:
+        - createTable:
+            tableName: fixture_event
+            columns:
+              - column: {name: id, type: BIGINT, autoIncrement: true, constraints: {primaryKey: true}}
+              - column: {name: fixture_id, type: BIGINT, constraints: {nullable: false}}
+              - column: {name: team_id, type: BIGINT}
+              - column: {name: player_id, type: BIGINT}
+              - column: {name: related_player_id, type: BIGINT}
+              - column: {name: event_type, type: VARCHAR(32), constraints: {nullable: false}}
+              - column: {name: minute, type: INT}
+              - column: {name: detail, type: VARCHAR(256)}
+        - addForeignKeyConstraint:
+            baseTableName: fixture_event
+            baseColumnNames: fixture_id
+            referencedTableName: fixture
+            referencedColumnNames: id
+            constraintName: fk_fe_fixture
+        - addForeignKeyConstraint:
+            baseTableName: fixture_event
+            baseColumnNames: player_id
+            referencedTableName: player
+            referencedColumnNames: id
+            constraintName: fk_fe_player
+
+  # ---------------------------------------------------------------
+  # Found while wiring up ESPN: a provider error response (Akamai's HTML
+  # block page, in this case) isn't valid JSON, and raw_payload's whole job
+  # is to survive exactly that kind of response for replay. A JSON-typed
+  # column rejects the insert instead, silently losing the one payload that
+  # would explain the failure.
+  # ---------------------------------------------------------------
+  - changeSet:
+      id: 010-raw-payload-payload-text
+      author: sabhya
+      changes:
+        - sql:
+            sql: ALTER TABLE raw_payload ALTER COLUMN payload TYPE TEXT USING payload::text

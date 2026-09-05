@@ -9,8 +9,6 @@ import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
 
@@ -46,8 +44,12 @@ public class RawPayload {
     @Column(name = "http_status")
     private Integer httpStatus;
 
-    @JdbcTypeCode(SqlTypes.JSON)
-    @Column(columnDefinition = "json")
+    // Plain text, not a json column: a provider error response (an HTML block
+    // page, a truncated body) isn't valid JSON, and this table's whole job is
+    // to survive exactly that kind of response for replay -- a JSON-typed
+    // column would reject the insert and lose it. (Found via ESPN's Akamai
+    // block page failing to insert here.)
+    @Column(columnDefinition = "text")
     private String payload;
 
     @Column(name = "fetched_at", nullable = false)

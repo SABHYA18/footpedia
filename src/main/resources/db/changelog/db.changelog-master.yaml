@@ -11,3 +11,5 @@ databaseChangeLog:
       file: db/changelog/005-account-settings.yaml
   - include:
       file: db/changelog/006-fixture-stats.yaml
+  - include:
+      file: db/changelog/007-espn-match-detail.yaml

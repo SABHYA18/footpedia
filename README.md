@@ -5,6 +5,25 @@ Premier League, La Liga, Serie A and the Bundesliga.
 
 Java 17 · Spring Boot 3.5.16 · Postgres (Supabase) · Redis · Liquibase · Resilience4j
 
+## Three upstream providers now
+
+A third provider, ESPN's unofficial site API, sits alongside the two below.
+It's undocumented (no key, no published rate limit, no ToS), so it's used as
+a supplement, not a dependency: faster live score/status than
+football-data.org's 5-min cycle, plus lineups, match events (goals/cards/
+subs) and richer team stats for the live season — none of which
+football-data.org's free tier or API-Football's scarce budget cover today.
+Verified against a live response before building against it: it does **not**
+reliably expose a shot map or clean per-team xG, despite some write-ups
+claiming otherwise — this stops at lineups/events/team stats rather than
+persisting data that isn't actually there.
+
+FBref (for progressive passes, pressures, xG-chain-style advanced stats) was
+considered and **not** built: a live test against its schedule page returned
+a Cloudflare bot-challenge page, not HTML, meaning a plain HTTP client (Jsoup
+included) cannot get past it — that would require deliberately defeating
+Cloudflare's bot protection, which this project won't build tooling for.
+
 ## The constraint that shapes everything
 
 Two upstream providers, with very different economics:
@@ -82,19 +101,24 @@ table creation needed.
 
 ## Build plan
 
-**Week 1 — Premier League only, Telegram as the UI**
+**Week 1 — Telegram as the UI**
 
 - [x] Schema, Liquibase migrations, quota guard
-- [ ] football-data.org client + scheduled fixture/standings ingestion
-- [ ] Redis cache-aside with the TTL table above
-- [ ] Reminder scheduler — Redis ZSET keyed on kickoff, `ZRANGEBYSCORE` poller
+- [x] football-data.org client + scheduled fixture/standings ingestion —
+      Premier League, La Liga, Serie A, Bundesliga, Champions League
+- [x] ESPN client — live score/status speed-up, lineups, match events,
+      team stats (see "Three upstream providers" above)
+- [x] Redis cache-aside with the TTL table above
+- [x] Reminder scheduler — Redis ZSET keyed on kickoff, `ZRANGEBYSCORE` poller
 - [ ] Telegram bot: reminders out, questions in
 - [ ] Claude agent with a read-only `run_sql` tool
 
 **Later**
 
 - [ ] API-Football lazy loader + staleness policy
-- [ ] Remaining three leagues (the schema is already multi-competition)
+- [ ] Historical (API-Football) backfill for La Liga, Serie A, Bundesliga,
+      Champions League — currently Premier League only; the 100/day budget
+      is shared, so this waits until PL's backfill finishes
 - [ ] Analytics rollups: form-adjusted table, xG over/under-performance,
       fixture difficulty runs, home/away splits
 - [ ] Reconciliation job — nightly diff against the provider for corrected

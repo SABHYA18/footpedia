@@ -23,6 +23,12 @@ public class ExternalRefResolver {
                 .map(ExternalRef::getInternalId);
     }
 
+    /** Reverse of {@link #resolve} -- given our internal ID, find the provider's external ID. */
+    public Optional<String> resolveExternalId(String entityType, String provider, Long internalId) {
+        return repository.findByEntityTypeAndProviderAndInternalId(entityType, provider, internalId)
+                .map(ExternalRef::getExternalId);
+    }
+
     public void link(String entityType, String provider, String externalId, Long internalId) {
         ExternalRef ref = repository.findByEntityTypeAndProviderAndExternalId(entityType, provider, externalId)
                 .orElseGet(ExternalRef::new);
