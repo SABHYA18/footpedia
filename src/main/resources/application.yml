@@ -82,9 +82,18 @@ resilience4j:
         # fully fit in the current window's permits queue for the next
         # window instead of erroring out.
         timeout-duration: 70s
-      espn:
-        # Mirrors footpedia.providers.espn.requests-per-minute below.
-        limit-for-period: 20
+      # Split from one shared "espn" bucket: live scoreboard polling (every
+      # 30s, up to 5 leagues) was found to consume nearly the entire shared
+      # budget by itself, starving summary calls -- observed live, 56
+      # scoreboard calls against 1 summary call in a 15-minute window,
+      # stalling the historical backfill. Separate buckets guarantee each
+      # its own throughput regardless of how busy the other is.
+      espn-scoreboard:
+        limit-for-period: 12
+        limit-refresh-period: 1m
+        timeout-duration: 70s
+      espn-summary:
+        limit-for-period: 15
         limit-refresh-period: 1m
         timeout-duration: 70s
 
@@ -108,9 +117,9 @@ footpedia:
       # Unofficial site API behind ESPN's own apps -- no key, no documented
       # rate limit, no daily cap. Fills the gap football-data.org's free
       # tier leaves: live status/score, lineups, match events, team stats.
-      # Kept conservative anyway since there's no published ceiling to trust.
+      # Actual per-minute limits live under resilience4j.ratelimiter above
+      # (espn-scoreboard / espn-summary, split so one can't starve the other).
       base-url: https://site.api.espn.com/apis/site/v2/sports/soccer
-      requests-per-minute: 20
 
   # Cache TTLs derived from how fast each thing actually changes.
   cache-ttl:

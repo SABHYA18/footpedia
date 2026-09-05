@@ -36,15 +36,26 @@ public class EspnClient {
         return getScoreboard(leagueSlug, null);
     }
 
-    /** Scoreboard for a specific date -- confirmed working against ESPN's live endpoint for past dates too. */
-    @RateLimiter(name = PROVIDER)
+    /**
+     * Scoreboard for a specific date -- confirmed working against ESPN's live
+     * endpoint for past dates too. Its own rate-limiter bucket, separate from
+     * {@link #getSummary}: {@code EspnLiveScoreScheduler} calls this every
+     * 30s across up to 5 leagues and was found (live) to consume nearly the
+     * entire shared 20/min budget by itself, starving summary calls almost
+     * completely -- in one observed 15-minute window, 56 scoreboard calls
+     * went out against just 1 summary call, stalling the historical
+     * backfill's formation-place rollout to a crawl. Splitting the budget by
+     * concern guarantees the backfill some throughput regardless of how busy
+     * live polling is.
+     */
+    @RateLimiter(name = "espn-scoreboard")
     public List<EspnScoreboardResponse.EventDto> getScoreboard(String leagueSlug, LocalDate date) {
         String path = "/" + leagueSlug + "/scoreboard" + (date == null ? "" : "?dates=" + date.format(DATE_PARAM));
         EspnScoreboardResponse response = parse(fetch(path), EspnScoreboardResponse.class);
         return response.events() == null ? List.of() : response.events();
     }
 
-    @RateLimiter(name = PROVIDER)
+    @RateLimiter(name = "espn-summary")
     public EspnSummaryResponse getSummary(String leagueSlug, String eventId) {
         return parse(fetch("/" + leagueSlug + "/summary?event=" + eventId), EspnSummaryResponse.class);
     }
