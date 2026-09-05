@@ -10,6 +10,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 /**
@@ -23,14 +25,21 @@ import java.util.List;
 public class EspnClient {
 
     private static final String PROVIDER = "espn";
+    private static final DateTimeFormatter DATE_PARAM = DateTimeFormatter.ofPattern("yyyyMMdd");
 
     private final WebClient espnWebClient;
     private final ObjectMapper objectMapper;
     private final RawPayloadStore rawPayloadStore;
 
-    @RateLimiter(name = PROVIDER)
+    /** Today's scoreboard. */
     public List<EspnScoreboardResponse.EventDto> getScoreboard(String leagueSlug) {
-        String path = "/" + leagueSlug + "/scoreboard";
+        return getScoreboard(leagueSlug, null);
+    }
+
+    /** Scoreboard for a specific date -- confirmed working against ESPN's live endpoint for past dates too. */
+    @RateLimiter(name = PROVIDER)
+    public List<EspnScoreboardResponse.EventDto> getScoreboard(String leagueSlug, LocalDate date) {
+        String path = "/" + leagueSlug + "/scoreboard" + (date == null ? "" : "?dates=" + date.format(DATE_PARAM));
         EspnScoreboardResponse response = parse(fetch(path), EspnScoreboardResponse.class);
         return response.events() == null ? List.of() : response.events();
     }

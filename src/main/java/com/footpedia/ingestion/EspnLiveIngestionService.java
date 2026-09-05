@@ -25,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Locale;
 import java.util.regex.Matcher;
@@ -68,11 +69,22 @@ public class EspnLiveIngestionService {
 
     @Transactional
     public void syncScores(Competition competition, String leagueSlug) {
+        syncScores(competition, leagueSlug, null);
+    }
+
+    /**
+     * Same as {@link #syncScores(Competition, String)} but for a specific
+     * past date -- ESPN's scoreboard endpoint takes a {@code dates} param
+     * and returns finished matches just as readily as today's, which is
+     * what makes historical backfill via ESPN viable in the first place.
+     */
+    @Transactional
+    public void syncScores(Competition competition, String leagueSlug, LocalDate date) {
         List<EspnScoreboardResponse.EventDto> events;
         try {
-            events = client.getScoreboard(leagueSlug);
+            events = client.getScoreboard(leagueSlug, date);
         } catch (EspnException e) {
-            log.warn("ESPN scoreboard fetch failed for {}: {}", leagueSlug, e.getMessage());
+            log.warn("ESPN scoreboard fetch failed for {} on {}: {}", leagueSlug, date, e.getMessage());
             return;
         }
 
