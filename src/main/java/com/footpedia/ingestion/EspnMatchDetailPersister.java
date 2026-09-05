@@ -127,7 +127,8 @@ class EspnMatchDetailPersister {
                         parseIntOrNull(entry.jersey()),
                         Boolean.TRUE.equals(entry.starter()),
                         Boolean.TRUE.equals(entry.subbedIn()),
-                        Boolean.TRUE.equals(entry.subbedOut()));
+                        Boolean.TRUE.equals(entry.subbedOut()),
+                        parseFormationPlace(entry.formationPlace()));
             }
         }
     }
@@ -201,5 +202,11 @@ class EspnMatchDetailPersister {
         } catch (NumberFormatException e) {
             return null;
         }
+    }
+
+    /** ESPN sends "0" for substitutes/non-starters -- not a real slot, so treat it as absent. */
+    private Integer parseFormationPlace(String s) {
+        Integer n = parseIntOrNull(s);
+        return n != null && n > 0 ? n : null;
     }
 }

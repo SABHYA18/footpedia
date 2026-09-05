@@ -36,6 +36,10 @@ public class FixtureLineup {
     @Column(name = "jersey_number")
     private Integer jerseyNumber;
 
+    /** ESPN's 1-11 role slot for a starter (stable convention, e.g. 1=GK, 9=striker); null for substitutes. */
+    @Column(name = "formation_place")
+    private Integer formationPlace;
+
     @Column(nullable = false)
     private boolean starter;
 

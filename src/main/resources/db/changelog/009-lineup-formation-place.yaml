@@ -1,0 +1,14 @@
+databaseChangeLog:
+  - changeSet:
+      id: 012-lineup-formation-place
+      author: sabhya
+      changes:
+        - addColumn:
+            tableName: fixture_lineup
+            columns:
+              # ESPN's 1-11 slot number for a starter (a stable role
+              # convention, not a literal formation row index -- e.g. slot 4
+              # and slot 8 are the two double-pivot midfielders in a 4-2-3-1,
+              # not "row 4"/"row 8"). Null for substitutes, who don't carry
+              # a meaningful slot.
+              - column: {name: formation_place, type: INT}

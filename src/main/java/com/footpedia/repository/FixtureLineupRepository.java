@@ -23,15 +23,16 @@ public interface FixtureLineupRepository extends JpaRepository<FixtureLineup, Lo
     @Modifying
     @Query(
             value = """
-            insert into fixture_lineup (fixture_id, team_id, player_id, position, jersey_number, starter, subbed_in, subbed_out)
-            values (:fixtureId, :teamId, :playerId, :position, :jerseyNumber, :starter, :subbedIn, :subbedOut)
+            insert into fixture_lineup (fixture_id, team_id, player_id, position, jersey_number, starter, subbed_in, subbed_out, formation_place)
+            values (:fixtureId, :teamId, :playerId, :position, :jerseyNumber, :starter, :subbedIn, :subbedOut, :formationPlace)
             on conflict (fixture_id, player_id) do update set
                 team_id = excluded.team_id,
                 position = excluded.position,
                 jersey_number = excluded.jersey_number,
                 starter = excluded.starter,
                 subbed_in = excluded.subbed_in,
-                subbed_out = excluded.subbed_out
+                subbed_out = excluded.subbed_out,
+                formation_place = excluded.formation_place
             """,
             nativeQuery = true)
     void upsert(
@@ -42,5 +43,6 @@ public interface FixtureLineupRepository extends JpaRepository<FixtureLineup, Lo
             @Param("jerseyNumber") Integer jerseyNumber,
             @Param("starter") boolean starter,
             @Param("subbedIn") boolean subbedIn,
-            @Param("subbedOut") boolean subbedOut);
+            @Param("subbedOut") boolean subbedOut,
+            @Param("formationPlace") Integer formationPlace);
 }

@@ -41,7 +41,8 @@ public record FixtureStatsResponse(
             Integer jerseyNumber,
             boolean starter,
             boolean subbedIn,
-            boolean subbedOut) {
+            boolean subbedOut,
+            Integer formationPlace) {
     }
 
     public record MatchEventEntry(

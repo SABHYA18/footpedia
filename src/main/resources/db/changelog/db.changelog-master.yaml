@@ -15,3 +15,5 @@ databaseChangeLog:
       file: db/changelog/007-espn-match-detail.yaml
   - include:
       file: db/changelog/008-fixture-formations.yaml
+  - include:
+      file: db/changelog/009-lineup-formation-place.yaml

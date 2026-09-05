@@ -89,7 +89,8 @@ public class FixtureStatsQueryServiceImpl implements FixtureStatsQueryService {
                             l.getJerseyNumber(),
                             l.isStarter(),
                             l.isSubbedIn(),
-                            l.isSubbedOut());
+                            l.isSubbedOut(),
+                            l.getFormationPlace());
                 })
                 .collect(Collectors.toList());
 

@@ -19,7 +19,8 @@ public record EspnSummaryResponse(List<RosterDto> rosters, List<KeyEventDto> key
             AthleteDto athlete,
             PositionDto position,
             Boolean subbedIn,
-            Boolean subbedOut) {
+            Boolean subbedOut,
+            String formationPlace) {
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
