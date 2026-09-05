@@ -53,11 +53,21 @@ class EspnMatchDetailPersister {
         }
     }
 
+    /**
+     * Find-or-create by (fixture, player) rather than delete-then-reinsert --
+     * this ran twice concurrently for the same fixture in practice (a local
+     * test instance and the deployed one both independently decided the same
+     * finished-hours-ago match still needed backfilling), and delete-then-
+     * blind-insert has no way to survive that: both processes pass "already
+     * deleted" and then race to reinsert the same (fixture_id, player_id),
+     * one losing to the unique constraint and aborting the whole sync for
+     * that fixture. A find-or-create update is naturally idempotent under
+     * that same race instead.
+     */
     private void syncLineups(Long fixtureId, List<EspnSummaryResponse.RosterDto> rosters) {
         if (rosters == null || rosters.isEmpty()) {
             return;
         }
-        fixtureLineupRepository.deleteByFixtureId(fixtureId);
         for (EspnSummaryResponse.RosterDto roster : rosters) {
             if (roster.team() == null || roster.roster() == null) {
                 continue;
@@ -71,7 +81,9 @@ class EspnMatchDetailPersister {
                 if (playerId == null) {
                     continue;
                 }
-                FixtureLineup lineup = new FixtureLineup();
+                FixtureLineup lineup = fixtureLineupRepository
+                        .findByFixtureIdAndPlayerId(fixtureId, playerId)
+                        .orElseGet(FixtureLineup::new);
                 lineup.setFixtureId(fixtureId);
                 lineup.setTeamId(teamId);
                 lineup.setPlayerId(playerId);
