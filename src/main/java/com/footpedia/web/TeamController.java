@@ -8,12 +8,17 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/teams")
 @RequiredArgsConstructor
 public class TeamController {
+
+    private static final int DEFAULT_PREVIOUS_FIXTURES = 5;
 
     private final TeamQueryService teamQueryService;
     private final FixtureQueryService fixtureQueryService;
@@ -23,9 +28,10 @@ public class TeamController {
         return teamQueryService.getById(id);
     }
 
-    /** Null (empty body) if the team hasn't played a finished fixture yet. */
-    @GetMapping("/{id}/previous-fixture")
-    public FixtureResponse previousFixture(@PathVariable Long id) {
-        return fixtureQueryService.getPreviousFixtureForTeam(id);
+    /** Most recent finished fixtures, any competition (domestic league + Champions League alike), most recent first. */
+    @GetMapping("/{id}/previous-fixtures")
+    public List<FixtureResponse> previousFixtures(
+            @PathVariable Long id, @RequestParam(defaultValue = "" + DEFAULT_PREVIOUS_FIXTURES) int limit) {
+        return fixtureQueryService.getPreviousFixturesForTeam(id, limit);
     }
 }

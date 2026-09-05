@@ -80,9 +80,9 @@ public class FixtureQueryServiceImpl implements FixtureQueryService {
     }
 
     @Override
-    public FixtureResponse getPreviousFixtureForTeam(Long teamId) {
-        List<Fixture> recent = fixtureRepository.findMostRecentFinishedForTeam(teamId, PageRequest.of(0, 1));
-        return recent.isEmpty() ? null : toResponses(recent).get(0);
+    public List<FixtureResponse> getPreviousFixturesForTeam(Long teamId, int limit) {
+        List<Fixture> recent = fixtureRepository.findMostRecentFinishedForTeam(teamId, PageRequest.of(0, limit));
+        return toResponses(recent);
     }
 
     @Override
