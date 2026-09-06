@@ -152,6 +152,7 @@ footpedia:
     # Where the reset link points.
     frontend-url: ${FRONTEND_URL:http://localhost:5173}
     reset-token-expiry-minutes: 30
+    change-code-expiry-minutes: 10
 
   cors:
     # footpedia-fe's dev server (Vite default port). Override for prod.

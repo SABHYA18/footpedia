@@ -17,3 +17,5 @@ databaseChangeLog:
       file: db/changelog/008-fixture-formations.yaml
   - include:
       file: db/changelog/009-lineup-formation-place.yaml
+  - include:
+      file: db/changelog/010-password-change-code.yaml

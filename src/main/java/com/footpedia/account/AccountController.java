@@ -10,6 +10,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -25,6 +26,12 @@ public class AccountController {
     @PutMapping("/profile")
     public UserResponse updateProfile(@AuthenticationPrincipal AppUser user, @Valid @RequestBody UpdateProfileRequest request) {
         return accountService.updateProfile(user.getId(), request);
+    }
+
+    @PostMapping("/password/code")
+    public MessageResponse requestPasswordChangeCode(@AuthenticationPrincipal AppUser user) {
+        accountService.requestPasswordChangeCode(user.getId());
+        return new MessageResponse("Verification code sent to your email.");
     }
 
     @PutMapping("/password")

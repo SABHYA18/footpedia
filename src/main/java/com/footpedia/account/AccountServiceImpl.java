@@ -3,29 +3,48 @@ package com.footpedia.account;
 import com.footpedia.account.dto.ChangePasswordRequest;
 import com.footpedia.account.dto.DeleteAccountRequest;
 import com.footpedia.account.dto.UpdateProfileRequest;
+import com.footpedia.auth.EmailService;
+import com.footpedia.auth.MailProperties;
 import com.footpedia.auth.dto.UserResponse;
 import com.footpedia.domain.AppUser;
+import com.footpedia.domain.PasswordChangeCode;
 import com.footpedia.repository.AppUserRepository;
+import com.footpedia.repository.PasswordChangeCodeRepository;
 import com.footpedia.repository.PasswordResetTokenRepository;
 import com.footpedia.repository.ReminderRepository;
 import com.footpedia.repository.UserLeaguePreferenceRepository;
 import com.footpedia.repository.UserTeamPreferenceRepository;
 import com.footpedia.web.exception.BadRequestException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.mail.MailException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
+import java.time.Instant;
+import java.util.HexFormat;
+
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class AccountServiceImpl implements AccountService {
+
+    private static final SecureRandom RANDOM = new SecureRandom();
 
     private final AppUserRepository appUserRepository;
     private final PasswordEncoder passwordEncoder;
     private final ReminderRepository reminderRepository;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
+    private final PasswordChangeCodeRepository passwordChangeCodeRepository;
     private final UserLeaguePreferenceRepository leaguePreferenceRepository;
     private final UserTeamPreferenceRepository teamPreferenceRepository;
+    private final EmailService emailService;
+    private final MailProperties mailProperties;
 
     @Override
     @Transactional
@@ -38,6 +57,29 @@ public class AccountServiceImpl implements AccountService {
 
     @Override
     @Transactional
+    public void requestPasswordChangeCode(Long userId) {
+        AppUser user = appUserRepository.findById(userId).orElseThrow();
+
+        passwordChangeCodeRepository.deleteUnusedByUserId(userId);
+
+        String code = generateCode();
+        PasswordChangeCode entity = new PasswordChangeCode();
+        entity.setUserId(userId);
+        entity.setCodeHash(hash(code));
+        entity.setExpiresAt(Instant.now().plusSeconds(mailProperties.changeCodeExpiryMinutes() * 60));
+        entity.setCreatedAt(Instant.now());
+        passwordChangeCodeRepository.save(entity);
+
+        // Swallow send failures rather than 500ing -- the caller can just retry "send code".
+        try {
+            emailService.sendPasswordChangeCode(user.getEmail(), code);
+        } catch (MailException e) {
+            log.error("Failed to send password change code", e);
+        }
+    }
+
+    @Override
+    @Transactional
     public void changePassword(Long userId, ChangePasswordRequest request) {
         AppUser user = appUserRepository.findById(userId).orElseThrow();
         if (!passwordEncoder.matches(request.currentPassword(), user.getPasswordHash())) {
@@ -46,8 +88,30 @@ public class AccountServiceImpl implements AccountService {
             // frontend's blanket "401 means the token is dead, log out" handler.
             throw new BadRequestException("Current password is incorrect");
         }
+
+        PasswordChangeCode code = passwordChangeCodeRepository
+                .findFirstByUserIdAndUsedAtIsNullOrderByCreatedAtDesc(userId)
+                .filter(c -> c.getExpiresAt().isAfter(Instant.now()))
+                .filter(c -> c.getCodeHash().equals(hash(request.code())))
+                .orElseThrow(() -> new BadRequestException("Invalid or expired code"));
+        code.setUsedAt(Instant.now());
+        passwordChangeCodeRepository.save(code);
+
         user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
         appUserRepository.save(user);
+    }
+
+    private static String generateCode() {
+        return "%06d".formatted(RANDOM.nextInt(1_000_000));
+    }
+
+    private static String hash(String raw) {
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256").digest(raw.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(digest);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 not available", e);
+        }
     }
 
     @Override
@@ -61,6 +125,7 @@ public class AccountServiceImpl implements AccountService {
         // Delete children before the parent row -- no ON DELETE CASCADE on these FKs.
         reminderRepository.deleteByUserRef(String.valueOf(userId));
         passwordResetTokenRepository.deleteByUserId(userId);
+        passwordChangeCodeRepository.deleteByUserId(userId);
         leaguePreferenceRepository.deleteByUserId(userId);
         teamPreferenceRepository.deleteByUserId(userId);
         appUserRepository.delete(user);

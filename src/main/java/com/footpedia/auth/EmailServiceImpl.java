@@ -40,6 +40,23 @@ public class EmailServiceImpl implements EmailService {
     }
 
     @Override
+    public void sendPasswordChangeCode(String toEmail, String code) {
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom(mailProperties.from());
+        message.setTo(toEmail);
+        message.setSubject("Your footpedia password change code");
+        message.setText("""
+                Use this code to confirm you want to change this footpedia account's password:
+
+                %s
+
+                This code expires in %d minutes. If you didn't request this, ignore this email --
+                your password won't change without it.
+                """.formatted(code, mailProperties.changeCodeExpiryMinutes()));
+        mailSender.send(message);
+    }
+
+    @Override
     public void sendReminderEmail(String toEmail, String homeTeamName, String awayTeamName, Instant utcKickoff) {
         SimpleMailMessage message = new SimpleMailMessage();
         message.setFrom(mailProperties.from());
