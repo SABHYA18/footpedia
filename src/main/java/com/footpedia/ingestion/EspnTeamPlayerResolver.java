@@ -102,6 +102,7 @@ class EspnTeamPlayerResolver {
         }
         Long existing = externalRefs.resolve("PLAYER", PROVIDER, athlete.id()).orElse(null);
         if (existing != null) {
+            enrichPositionIfMissing(existing, position);
             return existing;
         }
 
@@ -112,6 +113,7 @@ class EspnTeamPlayerResolver {
                 .orElse(null);
         if (matched != null) {
             externalRefs.link("PLAYER", PROVIDER, athlete.id(), matched);
+            enrichPositionIfMissing(matched, position);
             return matched;
         }
 
@@ -122,6 +124,19 @@ class EspnTeamPlayerResolver {
         Long playerId = playerRepository.save(player).getId();
         externalRefs.link("PLAYER", PROVIDER, athlete.id(), playerId);
         return playerId;
+    }
+
+    /** Same idea as {@link HistoricalIngestionService}'s copy -- only fills a gap, never overwrites. */
+    private void enrichPositionIfMissing(Long playerId, String position) {
+        if (position == null) {
+            return;
+        }
+        playerRepository.findById(playerId).ifPresent(p -> {
+            if (p.getPosition() == null) {
+                p.setPosition(position);
+                playerRepository.save(p);
+            }
+        });
     }
 
     /** {@code ours} is always our (football-data.org) name/short-name; {@code espn} is ESPN's displayName. */

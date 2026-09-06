@@ -164,7 +164,7 @@ public class HistoricalIngestionService {
                     continue; // did not feature
                 }
 
-                Long playerId = resolveOrCreatePlayer(entry.player(), teamId);
+                Long playerId = resolveOrCreatePlayer(entry.player(), teamId, s.games().position());
 
                 FixturePlayerStat stat = fixturePlayerStatRepository
                         .findByFixtureIdAndPlayerId(internalFixtureId, playerId)
@@ -218,9 +218,17 @@ public class HistoricalIngestionService {
         return teamId;
     }
 
-    private Long resolveOrCreatePlayer(ApiFootballPlayersResponse.PlayerInfo info, Long teamId) {
+    /**
+     * {@code position} enriches an existing player only when its own position
+     * is still null -- {@link com.footpedia.ingestion.EspnTeamPlayerResolver}
+     * does the same on the ESPN side. Neither ingestion path used to write
+     * this back to {@link Player} at all (only to the per-fixture stat/lineup
+     * rows), leaving {@code Player.position} null for every squad member.
+     */
+    private Long resolveOrCreatePlayer(ApiFootballPlayersResponse.PlayerInfo info, Long teamId, String position) {
         Long existing = externalRefs.resolve("PLAYER", PROVIDER, String.valueOf(info.id())).orElse(null);
         if (existing != null) {
+            enrichPositionIfMissing(existing, position);
             return existing;
         }
 
@@ -228,9 +236,22 @@ public class HistoricalIngestionService {
         player.setName(info.name());
         player.setPhotoUrl(info.photo());
         player.setCurrentTeamId(teamId);
+        player.setPosition(position);
         Long playerId = playerRepository.save(player).getId();
         externalRefs.link("PLAYER", PROVIDER, String.valueOf(info.id()), playerId);
         return playerId;
+    }
+
+    private void enrichPositionIfMissing(Long playerId, String position) {
+        if (position == null) {
+            return;
+        }
+        playerRepository.findById(playerId).ifPresent(p -> {
+            if (p.getPosition() == null) {
+                p.setPosition(position);
+                playerRepository.save(p);
+            }
+        });
     }
 
     private boolean namesMatch(String a, String b) {

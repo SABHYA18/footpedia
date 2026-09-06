@@ -116,7 +116,10 @@ class EspnMatchDetailPersister {
             }
             for (EspnSummaryResponse.RosterEntryDto entry : roster.roster()) {
                 String position = entry.position() == null ? null : entry.position().abbreviation();
-                Long playerId = resolver.resolveOrCreatePlayer(entry.athlete(), teamId, position);
+                // "SUB" is ESPN's bench marker, not an actual playing position -- fine to store
+                // on the lineup row itself, but never as this player's Player.position.
+                String playerPosition = "SUB".equals(position) ? null : position;
+                Long playerId = resolver.resolveOrCreatePlayer(entry.athlete(), teamId, playerPosition);
                 if (playerId == null) {
                     continue;
                 }
