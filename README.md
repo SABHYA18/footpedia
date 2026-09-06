@@ -124,4 +124,8 @@ table creation needed.
 - [ ] Reconciliation job — nightly diff against the provider for corrected
       scores, postponements, rescinded cards
 - [ ] Circuit breaker + DLQ with replay
-- [ ] React frontend ([footpedia-fe](https://github.com/SABHYA18/footpedia-fe))
+
+**Done, ahead of plan** — [footpedia-fe](https://github.com/SABHYA18/footpedia-fe):
+multi-league switching + per-league themes, stadium/crest imagery, lineups +
+match timeline + pitch-diagram formations, previous-fixture history, team
+detail pages, collapsible Home sections.
