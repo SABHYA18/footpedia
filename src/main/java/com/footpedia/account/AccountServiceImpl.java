@@ -88,6 +88,9 @@ public class AccountServiceImpl implements AccountService {
             // frontend's blanket "401 means the token is dead, log out" handler.
             throw new BadRequestException("Current password is incorrect");
         }
+        if (passwordEncoder.matches(request.newPassword(), user.getPasswordHash())) {
+            throw new BadRequestException("New password must be different from your current password");
+        }
 
         PasswordChangeCode code = passwordChangeCodeRepository
                 .findFirstByUserIdAndUsedAtIsNullOrderByCreatedAtDesc(userId)
