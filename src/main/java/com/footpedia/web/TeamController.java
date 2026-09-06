@@ -1,6 +1,7 @@
 package com.footpedia.web;
 
 import com.footpedia.web.dto.FixtureResponse;
+import com.footpedia.web.dto.PlayerResponse;
 import com.footpedia.web.dto.TeamResponse;
 import com.footpedia.web.service.FixtureQueryService;
 import com.footpedia.web.service.TeamQueryService;
@@ -33,5 +34,10 @@ public class TeamController {
     public List<FixtureResponse> previousFixtures(
             @PathVariable Long id, @RequestParam(defaultValue = "" + DEFAULT_PREVIOUS_FIXTURES) int limit) {
         return fixtureQueryService.getPreviousFixturesForTeam(id, limit);
+    }
+
+    @GetMapping("/{id}/players")
+    public List<PlayerResponse> players(@PathVariable Long id) {
+        return teamQueryService.getPlayersForTeam(id);
     }
 }

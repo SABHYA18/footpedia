@@ -80,6 +80,23 @@ class EspnTeamPlayerResolver {
     }
 
     Long resolveOrCreatePlayer(EspnSummaryResponse.AthleteDto athlete, Long teamId) {
+        return resolveOrCreatePlayer(athlete, teamId, null);
+    }
+
+    /**
+     * {@code position} (when known, e.g. from a lineup entry) is only used to
+     * enrich a newly-created player, never to overwrite an existing one.
+     *
+     * <p>Tries a name match against this team's existing players before
+     * creating a new one -- API-Football's historical backfill and this
+     * resolver each maintain their own external_ref namespace with no
+     * cross-provider reconciliation, so without this every player who
+     * appears in both (any current PL squad member who also played during
+     * 2023-24/2024-25) gets a second, duplicate Player row the moment ESPN
+     * sees them. Confirmed live: 107 duplicate (team, name) groups already
+     * existed in PL alone before this check existed.
+     */
+    Long resolveOrCreatePlayer(EspnSummaryResponse.AthleteDto athlete, Long teamId, String position) {
         if (athlete == null || athlete.id() == null) {
             return null;
         }
@@ -87,9 +104,21 @@ class EspnTeamPlayerResolver {
         if (existing != null) {
             return existing;
         }
+
+        Long matched = playerRepository.findByCurrentTeamIdOrderByNameAsc(teamId).stream()
+                .filter(p -> playerNamesMatch(p.getName(), athlete.displayName()))
+                .map(Player::getId)
+                .findFirst()
+                .orElse(null);
+        if (matched != null) {
+            externalRefs.link("PLAYER", PROVIDER, athlete.id(), matched);
+            return matched;
+        }
+
         Player player = new Player();
         player.setName(athlete.displayName());
         player.setCurrentTeamId(teamId);
+        player.setPosition(position);
         Long playerId = playerRepository.save(player).getId();
         externalRefs.link("PLAYER", PROVIDER, athlete.id(), playerId);
         return playerId;
@@ -122,6 +151,27 @@ class EspnTeamPlayerResolver {
                 .toLowerCase(Locale.ROOT)
                 .replaceAll("\\b(fc|afc|cf|sv)\\b", "")
                 .replaceAll("\\b\\d+\\b", "")
+                .replaceAll("[^a-z0-9]", "")
+                .trim();
+    }
+
+    /**
+     * Same diacritic-stripping idea as {@link #normalizeTeamName}, but none
+     * of its club-specific rules (no "FC"/"SV" stripping, no digit stripping,
+     * no alias table) -- a person's name doesn't carry those, and applying
+     * them would risk mangling one that coincidentally does.
+     */
+    private boolean playerNamesMatch(String a, String b) {
+        if (a == null || b == null) {
+            return false;
+        }
+        return normalizePlayerName(a).equals(normalizePlayerName(b));
+    }
+
+    private static String normalizePlayerName(String s) {
+        return Normalizer.normalize(s, Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "")
+                .toLowerCase(Locale.ROOT)
                 .replaceAll("[^a-z0-9]", "")
                 .trim();
     }

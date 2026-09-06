@@ -115,7 +115,8 @@ class EspnMatchDetailPersister {
                 continue;
             }
             for (EspnSummaryResponse.RosterEntryDto entry : roster.roster()) {
-                Long playerId = resolver.resolveOrCreatePlayer(entry.athlete(), teamId);
+                String position = entry.position() == null ? null : entry.position().abbreviation();
+                Long playerId = resolver.resolveOrCreatePlayer(entry.athlete(), teamId, position);
                 if (playerId == null) {
                     continue;
                 }
@@ -123,7 +124,7 @@ class EspnMatchDetailPersister {
                         fixtureId,
                         teamId,
                         playerId,
-                        entry.position() == null ? null : entry.position().abbreviation(),
+                        position,
                         parseIntOrNull(entry.jersey()),
                         Boolean.TRUE.equals(entry.starter()),
                         Boolean.TRUE.equals(entry.subbedIn()),
