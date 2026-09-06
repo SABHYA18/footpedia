@@ -38,8 +38,11 @@ public class PasswordResetServiceImpl implements PasswordResetService {
     private final EmailService emailService;
     private final MailProperties mailProperties;
 
+    // Deliberately NOT @Transactional -- issueAndSendToken's DB writes each
+    // auto-commit individually via Spring Data, and the mail send below is a
+    // slow, blocking SMTP call with no business holding a DB connection open
+    // for its duration (same fix as AccountServiceImpl.requestPasswordChangeCode).
     @Override
-    @Transactional
     public void requestReset(PasswordResetRequest request) {
         appUserRepository.findByEmail(request.email()).ifPresentOrElse(
                 this::issueAndSendToken,

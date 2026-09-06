@@ -15,6 +15,7 @@ import com.footpedia.repository.ReminderRepository;
 import com.footpedia.repository.UserLeaguePreferenceRepository;
 import com.footpedia.repository.UserTeamPreferenceRepository;
 import com.footpedia.web.exception.BadRequestException;
+import com.footpedia.web.exception.ServiceUnavailableException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.mail.MailException;
@@ -55,8 +56,26 @@ public class AccountServiceImpl implements AccountService {
         return UserResponse.from(user);
     }
 
+    /**
+     * Deliberately NOT {@code @Transactional} -- the DB writes below are each
+     * auto-committed individually by Spring Data (every {@code JpaRepository}
+     * method is itself transactional), and {@code emailService.send(...)} is a
+     * slow, blocking SMTP call that has no business holding a DB connection
+     * open for its duration. This is the same class of bug fixed earlier for
+     * ESPN's summary fetch ({@code EspnLiveIngestionService}/
+     * {@code EspnMatchDetailPersister}): a slow external call wrapped in
+     * {@code @Transactional} ties up a pooled connection for as long as that
+     * call takes, which under HikariCP's small pool can starve unrelated
+     * requests.
+     *
+     * <p>Also does NOT swallow a send failure the way
+     * {@link com.footpedia.auth.PasswordResetServiceImpl} does -- that swallow
+     * is deliberate there, to avoid leaking whether an email address has an
+     * account. There's no such concern here (the caller is already
+     * authenticated as themselves), so a failure is surfaced as a real error
+     * instead of a false "sent" response the user has no way to act on.
+     */
     @Override
-    @Transactional
     public void requestPasswordChangeCode(Long userId) {
         AppUser user = appUserRepository.findById(userId).orElseThrow();
 
@@ -70,11 +89,11 @@ public class AccountServiceImpl implements AccountService {
         entity.setCreatedAt(Instant.now());
         passwordChangeCodeRepository.save(entity);
 
-        // Swallow send failures rather than 500ing -- the caller can just retry "send code".
         try {
             emailService.sendPasswordChangeCode(user.getEmail(), code);
         } catch (MailException e) {
             log.error("Failed to send password change code", e);
+            throw new ServiceUnavailableException("Couldn't send the verification email right now. Please try again shortly.");
         }
     }
 

@@ -50,6 +50,13 @@ spring:
           auth: true
           starttls:
             enable: true
+          # Without these, JavaMail's default is no timeout at all -- a stalled
+          # connection to the SMTP host (a Railway egress hiccup, a firewall
+          # silently dropping packets, etc.) blocks the calling thread
+          # indefinitely instead of failing fast.
+          connectiontimeout: 10000
+          timeout: 10000
+          writetimeout: 10000
 
   task:
     scheduling:
