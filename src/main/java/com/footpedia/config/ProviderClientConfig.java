@@ -7,7 +7,9 @@ import org.springframework.web.reactive.function.client.ExchangeStrategies;
 import org.springframework.web.reactive.function.client.WebClient;
 
 @Configuration
-@EnableConfigurationProperties({FootballDataProperties.class, ApiFootballProperties.class, EspnProperties.class})
+@EnableConfigurationProperties({
+        FootballDataProperties.class, ApiFootballProperties.class, EspnProperties.class, ResendProperties.class
+})
 public class ProviderClientConfig {
 
     // A full-season /matches response comfortably exceeds WebClient's 256KB
@@ -56,6 +58,19 @@ public class ProviderClientConfig {
                 .baseUrl(properties.baseUrl())
                 .defaultHeader("User-Agent", "curl/8.7.1")
                 .exchangeStrategies(strategies)
+                .build();
+    }
+
+    // HTTP (not SMTP) email delivery -- Railway (like most PaaS platforms) blocks outbound
+    // SMTP on the standard ports to curb spam, so a direct JavaMailSender connection to
+    // smtp.gmail.com:587 hangs until it times out and never delivers. An HTTPS API call
+    // has no such restriction.
+    @Bean
+    public WebClient resendWebClient(ResendProperties properties) {
+        return WebClient.builder()
+                .baseUrl(properties.baseUrl())
+                .defaultHeader("Authorization", "Bearer " + properties.apiKey())
+                .defaultHeader("Content-Type", "application/json")
                 .build();
     }
 }

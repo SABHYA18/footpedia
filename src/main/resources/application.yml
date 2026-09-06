@@ -39,24 +39,6 @@ spring:
       # Redis (Railway's plugin, etc.) needs this set.
       password: ${REDIS_PASSWORD:}
 
-  mail:
-    host: ${MAIL_HOST:smtp.gmail.com}
-    port: ${MAIL_PORT:587}
-    username: ${MAIL_USERNAME:}
-    password: ${MAIL_APP_PASSWORD:}
-    properties:
-      mail:
-        smtp:
-          auth: true
-          starttls:
-            enable: true
-          # Without these, JavaMail's default is no timeout at all -- a stalled
-          # connection to the SMTP host (a Railway egress hiccup, a firewall
-          # silently dropping packets, etc.) blocks the calling thread
-          # indefinitely instead of failing fast.
-          connectiontimeout: 10000
-          timeout: 10000
-          writetimeout: 10000
 
   task:
     scheduling:
@@ -127,6 +109,13 @@ footpedia:
       # Actual per-minute limits live under resilience4j.ratelimiter above
       # (espn-scoreboard / espn-summary, split so one can't starve the other).
       base-url: https://site.api.espn.com/apis/site/v2/sports/soccer
+
+  resend:
+    # HTTPS email API -- Railway blocks outbound SMTP on the standard ports,
+    # so direct SMTP to Gmail hung until timeout and never delivered. See
+    # EmailServiceImpl.
+    base-url: https://api.resend.com
+    api-key: ${RESEND_API_KEY:}
 
   # Cache TTLs derived from how fast each thing actually changes.
   cache-ttl:
